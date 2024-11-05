@@ -1,6 +1,6 @@
 import base64
 import hashlib
-from scapy.all import sniff, IP, ICMP
+from scapy.all import sniff, IP, ICMP, wrpcap
 
 # Konfiguration
 PCAP_FILE = 'receiver_capture.pcap'
@@ -25,6 +25,9 @@ def handle_packet(packet):
         if hasattr(packet[ICMP].payload, 'load'):
             data = packet[ICMP].payload.load.decode('utf-8')
             receive_data(data)
+        
+    # Speichert das Paket in der pcap-Datei
+    wrpcap(PCAP_FILE, packet, append=True)
 
 # Anforderungen 4: Empfangene Daten zusammensetzen
 data_buffer = ""
