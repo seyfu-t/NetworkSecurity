@@ -1,12 +1,10 @@
-import socket
 import base64
 import hashlib
 from scapy.all import ICMP, IP, sr1, send, sniff
-import threading
 
 # Konfiguration
 FILENAME = 'text_to_send.txt'
-TARGET_IP = '192.168.2.171'  # IP-Adresse des Empfängers
+TARGET_IP = 'localhost'  # IP-Adresse des Empfängers
 PCAP_FILE = 'receiver_capture.pcap'
 OUTPUT_FILE = 'erhaltener_text.txt'
 
@@ -40,34 +38,6 @@ def send_data_icmp():
         else:
             print(f"Gesendet: {chunk}")
 
-# Anforderungen 4: Empfangen der Daten über ICMP
-def receive_data_icmp():
-    """Empfängt codierte Daten mit Prüfsumme über ICMP, überprüft und speichert die Daten."""
-    def packet_callback(packet):
-        if ICMP in packet and packet[ICMP].type == 8 and packet[IP].src == TARGET_IP:
-            received_chunk = packet[ICMP].load.decode('utf-8')
-            received_data.append(received_chunk)
-            print(f"Empfangen: {received_chunk}")
-
-    received_data = []
-    print("Warte auf ICMP-Daten...")
-    sniff(filter="icmp", prn=packet_callback, timeout=10, stop_filter=lambda x: len(received_data) > 0)
-
-    # Zusammensetzen der empfangenen Daten
-    full_data = ''.join(received_data)
-    data_length = int(full_data[:8])
-    encoded_data = full_data[8:8+data_length]
-    received_checksum = full_data[8+data_length:]
-
-    # Prüfen der Integrität und Decodieren der Daten
-    if calculate_checksum(encoded_data) == received_checksum:
-        print("Datenintegrität bestätigt.")
-        decoded_data = base64.b64decode(encoded_data).decode('utf-8')
-        save_to_file(decoded_data)
-        print("Empfangene Daten erfolgreich in 'erhaltener_text.txt' gespeichert.")
-    else:
-        print("Fehler: Prüfsumme stimmt nicht überein.")
-
 # Anforderungen 5: Speichern der empfangenen Daten in einer Datei
 def save_to_file(data):
     """Speichert den empfangenen und decodierten Text in einer Datei."""
@@ -75,11 +45,4 @@ def save_to_file(data):
         file.write(data)
 
 if __name__ == "__main__":
-    # Wähle entweder das Senden oder das Empfangen
-    action = input("Möchten Sie Daten senden oder empfangen? (s/e): ").strip().lower()
-    if action == 's':
-        send_data_icmp()
-    elif action == 'e':
-        receive_data_icmp()
-    else:
-        print("Ungültige Eingabe. Bitte 's' für senden oder 'e' für empfangen eingeben.")
+    send_data_icmp()

@@ -5,7 +5,7 @@ from scapy.all import sniff, IP, ICMP, wrpcap
 # Konfiguration
 PCAP_FILE = 'receiver_capture.pcap'
 OUTPUT_FILE = 'erhaltener_text.txt'
-EXPECTED_IP = '192.168.2.164'  # IP-Adresse des Senders
+EXPECTED_IP = 'localhost'  # IP-Adresse des Senders
 
 # Anforderungen 1: Berechnung der Prüfsumme für die Integrität
 def calculate_checksum(data):
