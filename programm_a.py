@@ -4,7 +4,7 @@ from scapy.all import ICMP, IP, sr1, send, sniff
 
 # Configuration
 FILENAME = 'text_to_send.txt'
-TARGET_IP = '127.0.0.1'  # Receiver's IP address
+TARGET_IP = '192.168.2.171'  # Receiver's IP address
 OUTPUT_FILE = 'erhaltener_text.txt'
 
 # Read and encode the file

@@ -4,7 +4,7 @@ from scapy.all import sniff, IP, ICMP, send
 
 # Configuration
 OUTPUT_FILE = 'erhaltener_text.txt'
-EXPECTED_IP = '127.0.0.1'  # Sender's IP address
+EXPECTED_IP = '192.168.2.164'  # Sender's IP address
 
 # Calculate checksum for integrity verification
 def calculate_checksum(data):
