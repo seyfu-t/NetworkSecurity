@@ -1,65 +1,54 @@
 import base64
 import hashlib
-from scapy.all import sniff, IP, ICMP, wrpcap
+from scapy.all import sniff, IP, ICMP, send
 
-# Konfiguration
-PCAP_FILE = 'receiver_capture.pcap'
+# Configuration
 OUTPUT_FILE = 'erhaltener_text.txt'
-EXPECTED_IP = 'localhost'  # IP-Adresse des Senders
+EXPECTED_IP = '127.0.0.1'  # Sender's IP address
 
-# Anforderungen 1: Berechnung der Prüfsumme für die Integrität
+# Calculate checksum for integrity verification
 def calculate_checksum(data):
-    """Berechnet eine MD5-Prüfsumme für die Integritätsprüfung."""
     return hashlib.md5(data.encode('utf-8')).hexdigest()
 
-# Anforderungen 2: Speichern der empfangenen Daten in einer Datei
+# Save the received and decoded data to a file
 def save_to_file(data):
-    """Speichert den empfangenen und decodierten Text in einer Datei."""
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as file:
         file.write(data)
 
-# Anforderungen 3: Verarbeitung des ICMP-Verkehrs
+# Handle incoming ICMP packets and assemble data
+received_packets = {}
 def handle_packet(packet):
-    """Verarbeitet empfangene ICMP-Pakete und stellt die Daten zusammen."""
     if IP in packet and ICMP in packet and packet[IP].src == EXPECTED_IP:
         if hasattr(packet[ICMP].payload, 'load'):
             data = packet[ICMP].payload.load.decode('utf-8')
-            receive_data(data)
-        
-    # Speichert das Paket in der pcap-Datei
-    wrpcap(PCAP_FILE, packet, append=True)
+            packet_num = int(data[:4])
+            chunk = data[4:-32]
+            received_checksum = data[-32:]
 
-# Anforderungen 4: Empfangene Daten zusammensetzen
-data_buffer = ""
-def receive_data(data):
-    """Empfängt und prüft die Vollständigkeit der Daten."""
-    global data_buffer
-    data_buffer += data
-
-    # Überprüfen, ob wir genug Daten für die Länge und Prüfsumme haben
-    if len(data_buffer) > 8:
-        data_length = int(data_buffer[:8])
-        if len(data_buffer) >= 8 + data_length + 32:
-            encoded_data = data_buffer[8:8 + data_length]
-            received_checksum = data_buffer[8 + data_length:8 + data_length + 32]
-
-            # Prüfsumme verifizieren
-            if calculate_checksum(encoded_data) == received_checksum:
-                print("Datenintegrität bestätigt.")
-                decoded_data = base64.b64decode(encoded_data).decode('utf-8')
-                save_to_file(decoded_data)
-                print("Empfangene Daten erfolgreich in 'erhaltener_text.txt' gespeichert.")
+            # Verify checksum
+            if calculate_checksum(chunk) == received_checksum:
+                print(f"Packet {packet_num} integrity confirmed.")
+                received_packets[packet_num] = chunk
             else:
-                print("Fehler: Prüfsumme stimmt nicht überein.")
-            
-            # Buffer zurücksetzen für weitere Nachrichten
-            data_buffer = ""
+                print(f"Checksum error in packet {packet_num}. Requesting retransmission.")
+                request_resend(packet_num)
 
-# Anforderungen 5: Starten der Paketaufzeichnung und des Lauschens
+            # Check if all data has been received
+            if received_packets:
+                total_data = ''.join([received_packets[i] for i in sorted(received_packets)])
+                decoded_data = base64.b64decode(total_data).decode('utf-8')
+                save_to_file(decoded_data)
+                print("Data saved successfully to 'erhaltener_text.txt'.")
+
+# Request retransmission of a specific packet
+def request_resend(packet_num):
+    resend_packet = IP(dst=EXPECTED_IP)/ICMP(type=8)/f"RESEND:{packet_num:04d}"
+    send(resend_packet, verbose=0)
+
+# Start sniffing for ICMP packets
 def start_sniffing():
-    """Startet das Sniffen der ICMP-Pakete."""
     sniff(filter="icmp", prn=handle_packet, store=0)
 
 if __name__ == "__main__":
-    print("Warte auf ICMP-Pakete...")
+    print("Waiting for ICMP packets...")
     start_sniffing()
