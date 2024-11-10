@@ -5,15 +5,9 @@ from scapy.all import sniff, IP, ICMP, send
 # Configuration
 OUTPUT_FILE = 'erhaltener_text.txt'
 EXPECTED_IP = '192.168.2.164'  # Sender's IP address
+MAX_ATTEMPTS = 5
 
-# Calculate checksum for integrity verification
-def calculate_checksum(data):
-    return hashlib.md5(data.encode('utf-8')).hexdigest()
 
-# Save the received and decoded data to a file
-def save_to_file(data):
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as file:
-        file.write(data)
 
 # Handle incoming ICMP packets and assemble data
 received_packets = {}
@@ -66,10 +60,19 @@ def request_resend(packet_num):
     resend_packet = IP(dst=EXPECTED_IP)/ICMP(type=8)/f"RESEND:{packet_num:04d}"
     send(resend_packet, verbose=0)
 
-# Start sniffing for ICMP packets
-def start_sniffing():
-    sniff(filter="icmp", prn=handle_packet, store=0)
+
+
+
+
+# Save the received and decoded data to a file
+def save_to_file(data):
+    with open(OUTPUT_FILE, 'w', encoding='utf-8') as file:
+        file.write(data)
+
+# Calculate checksum for integrity verification
+def calculate_checksum(data):
+    return hashlib.md5(data.encode('utf-8')).hexdigest()
 
 if __name__ == "__main__":
     print("Waiting for ICMP packets...")
-    start_sniffing()
+    sniff(filter="icmp", prn=handle_packet, store=0)
