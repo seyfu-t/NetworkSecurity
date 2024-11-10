@@ -1,6 +1,6 @@
 import base64
 import hashlib
-from scapy.all import sniff, IP, ICMP, send
+from scapy.all import sniff, IP, ICMP, send, wrpcap
 
 # Configuration
 OUTPUT_FILE = 'erhaltener_text.txt'
@@ -9,16 +9,20 @@ received_packets = {}
 total_packets = None  # Total number of packets expected
 missing_packets_queue = []  # Queue for missing or invalid packets
 
+all_packets = []
+PCAP_FILE = 'transmission.pcap'
+
 # Simulate checksum error for testing
 skip = True
 stop_received = False  # Flag to indicate when the STOP message has been received
 
 # Handle incoming ICMP packets and assemble data
 def handle_packet(packet):
-    global received_packets, total_packets, skip, missing_packets_queue, stop_received
+    global received_packets, total_packets, skip, missing_packets_queue, stop_received, all_packets
     if IP in packet and ICMP in packet and packet[IP].src == EXPECTED_IP:
         if hasattr(packet[ICMP].payload, 'load'):
             try:
+                all_packets.append(packet)
                 data = packet[ICMP].payload.load.decode('utf-8')
 
                 # Skip processing for control messages
@@ -92,8 +96,11 @@ def save_data_to_file():
 
 # Request retransmission of a specific packet
 def request_resend(packet_num):
+    global all_packets
     resend_packet = IP(dst=EXPECTED_IP)/ICMP(type=8)/f"RESEND:{packet_num:04d}"
-    send(resend_packet, verbose=0)
+    all_packets.append(resend_packet)
+    response = send(resend_packet, verbose=0)
+    all_packets.append(response)
     print(f"Retransmission request sent for packet {packet_num}.")
 
 # Save the received and decoded data to a file
@@ -108,3 +115,4 @@ def calculate_checksum(data):
 if __name__ == "__main__":
     print("Waiting for ICMP packets...")
     sniff(filter="icmp", prn=handle_packet, store=0)
+    wrpcap(PCAP_FILE, all_packets)
