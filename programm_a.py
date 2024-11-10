@@ -51,10 +51,10 @@ def send_packet_with_retries(packet, packet_name):
     success = False
 
     while attempts < MAX_ATTEMPTS:
-        response = sr1(packet, timeout=1, verbose=0)
         all_packets.append(packet)
+        response = sr1(packet, timeout=1, verbose=0)
+        all_packets.append(response)
         if response is None:
-            all_packets.append(response)
             attempts += 1
             print(f"Attempt {attempts}: No response for {packet_name}, retrying...")
         else:
