@@ -34,6 +34,7 @@ def send_data_icmp():
 
         if not send_packet_with_retries(packet, f"Packet {i}"):
             print(f"Failed to receive acknowledgment for packet {i} after {MAX_ATTEMPTS} attempts.")
+            exit(1)
 
     # Send the STOP message
     if not send_packet_with_retries(IP(dst=TARGET_IP)/ICMP(type=8)/"STOP", "STOP"):
