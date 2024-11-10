@@ -1,14 +1,16 @@
 import base64
 import hashlib
-from scapy.all import ICMP, IP, sr1, send, sniff
+from scapy.all import ICMP, IP, sr1, send, sniff, wrpcap
 
 # Configuration
 FILENAME = 'text_to_send.txt'
 TARGET_IP = '192.168.2.171'  # Receiver's IP address
 MAX_ATTEMPTS = 5
+PCAP_FILE = 'transmission.pcap'
 
 # Store chunks for possible retransmissions
 sent_chunks = {}
+all_packets = []
 
 # Send data via ICMP with per-packet checksum
 def send_data_icmp():
@@ -24,6 +26,7 @@ def send_data_icmp():
     if not send_packet_with_retries(IP(dst=TARGET_IP)/ICMP(type=8)/f"START:{total_packets:04d}", "START"):
         print("Sending 'START' failed. Exiting...")
         exit(1)
+    
 
     for i in range(total_packets):
         chunk = encoded_data[i * data_chunk_size:(i + 1) * data_chunk_size]
@@ -43,12 +46,15 @@ def send_data_icmp():
 
 # Send a packet with retry logic
 def send_packet_with_retries(packet, packet_name):
+    global all_packets
     attempts = 0
     success = False
 
     while attempts < MAX_ATTEMPTS:
         response = sr1(packet, timeout=1, verbose=0)
+        all_packets.append(packet)
         if response is None:
+            all_packets.append(response)
             attempts += 1
             print(f"Attempt {attempts}: No response for {packet_name}, retrying...")
         else:
@@ -78,12 +84,15 @@ if __name__ == "__main__":
     
     # This should listen for incoming retransmission requests from the receiver.
     def handle_incoming_request(packet):
+        all_packets.append(packet)
         if IP in packet and ICMP in packet and hasattr(packet[ICMP].payload, 'load'):
             data = packet[ICMP].payload.load.decode('utf-8')
             if data.startswith("RESEND:"):
                 packet_num = int(data.split(":")[1])
                 if packet_num in sent_chunks:
                     print(f"Resending packet {packet_num} due to request.")
-                    send(sent_chunks[packet_num], verbose=0)
+                    response = send(sent_chunks[packet_num], verbose=0)
+                    all_packets.append(response)
 
     sniff(filter="icmp", prn=handle_incoming_request, store=0)
+    wrpcap(PCAP_FILE, all_packets)
